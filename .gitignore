@@ -1,0 +1,9 @@
+node_modules/
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+Thumbs.db
+audio.m4a
+*.part
+*.zip

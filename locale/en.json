@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Bilibili Video Summary",
+    "description": "Transcribe a Bilibili video locally, then generate a one-page summary infographic and an analysis markdown file."
+  }
+}

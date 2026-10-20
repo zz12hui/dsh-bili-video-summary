@@ -4,6 +4,8 @@ DSH 本地插件：在会话里发一个 B 站视频链接，自动完成「本�
 
 不依赖 B 站登录、不调用第三方字幕服务，音频和转写全部在本机完成。
 
+![示例：视频总结一图读懂](docs/demo-summary.png)
+
 ## 两个工具（模型可见）
 
 | 工具 | 作用 | 耗时 |
@@ -13,13 +15,37 @@ DSH 本地插件：在会话里发一个 B 站视频链接，自动完成「本�
 
 典型调用顺序：`bili_video_transcribe` → 模型读转录写解析 → `bili_video_render`。
 
+## 安装
+
+```bash
+git clone https://github.com/zz12hui/dsh-bili-video-summary.git
+```
+
+1. 把仓库内容复制到 `%USERPROFILE%\.dsh\profiles\desktop\node_modules\dsh-local-bili-summary\`（`~/.dsh/profiles/desktop/node_modules/` 同理）。
+2. 在 `%USERPROFILE%\.dsh\profiles\desktop\cordis.patch.yml` 末尾追加：
+
+   ```yaml
+   - insert:
+       - id: bili-summary-panel
+         name: 'dsh-local-bili-summary'
+   ```
+
+3. 准备运行环境（模型 + python 依赖，约 725MB）：
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scripts\setup_env.ps1
+   ```
+
+4. **重启 DSH**（关闭窗口含托盘退出 → 重开 → 恢复会话）。插件在启动时注册工具，刷新页面不会加载它。
+5. 验证：发一个 B 站视频链接，助手应调用 `bili_video_transcribe` 转写，再调 `bili_video_render` 出图。
+
 ## 安装位置
 
 | 内容 | 路径 |
 |---|---|
-| 插件本体 | `C:\Users\Administrator\.dsh\profiles\desktop\node_modules\dsh-local-bili-summary\` |
-| profile 补丁行 | `C:\Users\Administrator\.dsh\profiles\desktop\cordis.patch.yml` 末尾 `bili-summary-panel` |
-| 数据根目录 | `C:\Users\Administrator\.dsh\bili-video-summary\` |
+| 插件本体 | `%USERPROFILE%\.dsh\profiles\desktop\node_modules\dsh-local-bili-summary\` |
+| profile 补丁行 | `%USERPROFILE%\.dsh\profiles\desktop\cordis.patch.yml` 末尾 `bili-summary-panel` |
+| 数据根目录 | `%USERPROFILE%\.dsh\bili-video-summary\`（可用 `BILI_SUMMARY_HOME` 覆盖） |
 | python 依赖 | `…\bili-video-summary\pylibs\`（faster-whisper 1.2.1 / ctranslate2 4.8.3 / av 19 / onnxruntime） |
 | 模型 | `…\bili-video-summary\model\faster-whisper-small\`（int8，约 462MB） |
 | 缓存 | `…\bili-video-summary\cache\<BV号>\`（audio.m4a / transcript.* / result.json） |
@@ -60,13 +86,18 @@ powershell -ExecutionPolicy Bypass -File scripts\setup_env.ps1
 ## 手动跑（排查用）
 
 ```powershell
-$py = "C:\Users\Administrator\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe"
+$py = "$env:USERPROFILE\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.exe"
+$pl = "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-local-bili-summary\scripts"
 # 转写（--force 忽略缓存；--clip 60 只转前 60 秒，调试用）
-& $py "...\scripts\bili_pipeline.py" transcribe --url "https://www.bilibili.com/video/BVxxxx" 
+& $py "$pl\bili_pipeline.py" transcribe --url "https://www.bilibili.com/video/BVxxxx"
 # 渲染
-& $py "...\scripts\render_summary.py" --plan-file plan.json
+& $py "$pl\render_summary.py" --plan-file plan.json
 ```
 
 ## 回滚
 
-删掉 `cordis.patch.yml` 末尾的 `bili-summary-panel` 插入块和 `node_modules\dsh-local-bili-summary`，重启 DSH；数据目录可保留也可整目录删除。
+删掉 `cordis.patch.yml` 末尾的 `bili-summary-panel` 插入块和 `node_modules\dsh-local-bili-summary`，重启 DSH；数据目录可保留也可整目录删除（`~/.dsh/bili-video-summary`）。
+
+## License
+
+MIT

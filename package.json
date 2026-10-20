@@ -1,9 +1,27 @@
-﻿{
+{
   "name": "dsh-local-bili-summary",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "B 站视频一键总结：本地转写出转录，再生成一图读懂 PNG 与解析 md",
+  "description": "B 站视频一键总结 DSH 插件：本地 faster-whisper 转写，自动生成解析 md 与一图读懂 PNG。",
+  "author": "zz12hui",
+  "license": "MIT",
+  "homepage": "https://github.com/zz12hui/dsh-bili-video-summary#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zz12hui/dsh-bili-video-summary.git"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "cordis",
+    "bilibili",
+    "faster-whisper",
+    "asr",
+    "summary",
+    "infographic"
+  ],
   "exports": {
     ".": "./index.js",
     "./locale/*.json": "./locale/*.json",
@@ -24,4 +42,3 @@
     }
   }
 }
-

@@ -75,6 +75,19 @@
 
 ### 4.2 安装插件
 
+命令行走 profile 的插件管理器安装（DSH 桌面版一般用 `desktop`，dsh web 用 `web`）：
+
+```bash
+dsh plugin --profile desktop add github:zz12hui/dsh-bili-video-summary
+```
+
+> DSH 桌面版正在运行时，命令行不会改应用的 profile：先退出桌面版再执行，或等上架后在市场里一键安装。
+
+装完**重启 DSH**（关闭窗口含托盘退出 → 重开 → 恢复会话）。首次使用还要装一次运行环境（模型 + Python 依赖，约 725MB），脚本位置见下面手动安装的第 3 条。
+
+<details>
+<summary>手动安装（旧版 / 离线环境）</summary>
+
 ```bash
 git clone https://github.com/zz12hui/dsh-bili-video-summary.git
 ```
@@ -94,9 +107,11 @@ git clone https://github.com/zz12hui/dsh-bili-video-summary.git
    powershell -ExecutionPolicy Bypass -File scripts\setup_env.ps1
    ```
 
-   脚本会用阿里云镜像把 faster-whisper 装到独立的 `pylibs`，从 ModelScope 拉 `faster-whisper-small`，最后校验依赖。可传 `-Python` / `-DataHome` 换解释器和数据目录。
+   脚本会用阿里云镜像把 faster-whisper 装到独立的 `pylibs`，从 ModelScope 拉 `faster-whisper-small`，最后校验依赖。可传 `-Python` / `-DataHome` 换解释器和数据目录。用 `dsh plugin add` 装的，脚本在 `%USERPROFILE%\.dsh\profiles\desktop\node_modules\dsh-local-bili-summary\scripts\setup_env.ps1`。
 
 4. **重启 DSH**（关闭窗口含托盘退出 → 重开 → 恢复会话）。插件在启动时注册工具，刷新页面不会加载它。
+
+</details>
 
 ### 4.3 验证
 

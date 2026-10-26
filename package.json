@@ -1,7 +1,6 @@
 {
   "name": "dsh-local-bili-summary",
-  "version": "1.0.0",
-  "private": true,
+  "version": "1.0.1",
   "type": "module",
   "description": "B 站视频一键总结 DSH 插件：本地 faster-whisper 转写，自动生成解析 md 与一图读懂 PNG。",
   "author": "zz12hui",

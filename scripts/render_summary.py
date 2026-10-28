@@ -42,7 +42,7 @@ import re
 import shutil
 import sys
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 W, H = 1920, 1320
 BG = (247, 248, 251)
@@ -163,6 +163,8 @@ COLOR_MAP = {
 
 def render(plan):
     p = plan.get("plan") or {}
+    if p.get("cards"):
+        return render_cards(p)
     pitfalls = [str(x) for x in (p.get("pitfalls") or [])][:5]
     milestones = [m for m in (p.get("milestones") or [])][:4]
     suggestions = [s for s in (p.get("suggestions") or [])][:5]
@@ -278,6 +280,205 @@ def render(plan):
     footer = str(p.get("footer") or "来源：视频音轨本地 ASR 转录后人工整理；个别数字与专有名词可能与原视频有出入，引用前建议复核。")
     d.text((44, H - 44), footer, font=F_FOOT, fill=GRAY)
     return img
+
+
+# ---------------- 卡片版式（榜单 / 插件 / 清单类视频） ----------------
+CW, CH = 1920, 1390
+DENG = font_file("Deng.ttf", REG)
+DENGB = font_file("Dengb.ttf", BOLD)
+MONO = font_file("consolab.ttf", BOLD)
+MONO_REG = font_file("consola.ttf", REG)
+
+
+def _is_ascii(s):
+    return all(ord(ch) < 128 for ch in s)
+
+
+def _mix(c1, c2, t):
+    return tuple(int(c1[i] + (c2[i] - c1[i]) * t) for i in range(3))
+
+
+ACCENTS = {
+    "blue": ((47, 107, 255), (30, 64, 175), (241, 245, 255)),
+    "amber": ((226, 132, 10), (146, 80, 8), (255, 247, 233)),
+    "rose": ((210, 62, 116), (146, 36, 80), (253, 240, 246)),
+    "violet": ((122, 90, 214), (80, 54, 156), (245, 241, 255)),
+    "green": ((28, 134, 82), (18, 96, 58), (236, 249, 242)),
+    "red": ((201, 66, 58), (146, 42, 36), (254, 240, 238)),
+}
+
+
+def _vert_grad(w, h, top, bottom):
+    img = Image.new("RGB", (w, h), top)
+    d = ImageDraw.Draw(img)
+    for y in range(h):
+        t = y / max(h - 1, 1)
+        d.line([(0, y), (w, y)], fill=tuple(int(top[i] + (bottom[i] - top[i]) * t) for i in range(3)))
+    return img
+
+
+def _soft_shadow(size, boxes, radius=20, blur=13, alpha=34, dy=9):
+    layer = Image.new("RGBA", size, (0, 0, 0, 0))
+    dl = ImageDraw.Draw(layer)
+    for b in boxes:
+        dl.rounded_rectangle((b[0], b[1] + dy, b[2], b[3] + dy), radius=radius, fill=(23, 32, 56, alpha))
+    return layer.filter(ImageFilter.GaussianBlur(blur))
+
+
+def _title_two_tone(d, x, y, text, hl, fnt, color, hl_color):
+    if not hl or hl not in text:
+        d.text((x, y), text, font=fnt, fill=color)
+        return
+    pre, post = text.split(hl, 1)
+    d.text((x, y), pre, font=fnt, fill=color)
+    x2 = x + fnt.getlength(pre)
+    d.text((x2, y), hl, font=fnt, fill=hl_color)
+    d.text((x2 + fnt.getlength(hl), y), post, font=fnt, fill=color)
+
+
+def render_cards(p):
+    cards = [c for c in (p.get("cards") or [])][:12]
+    panels = (p.get("panels") or [])[:3]
+
+    f_kick = F(DENG, 17)
+    f_title = F(DENGB, 58)
+    f_sub = F(DENG, 21)
+    f_q_label = F(DENGB, 16)
+    f_quote = F(DENGB, 26)
+    f_en = F(MONO, 25)
+    f_en_s = F(MONO, 20)
+    f_cn = F(DENGB, 26)
+    f_num = F(MONO, 21)
+    f_zh = F(DENGB, 19)
+    f_desc = F(DENG, 16.5)
+    f_bul = F(DENG, 16)
+    f_sec = F(DENGB, 21)
+    f_item = F(DENG, 16)
+    f_foot = F(DENG, 14.5)
+    f_stat_n = F(DENGB, 30)
+    f_stat_l = F(DENG, 14.5)
+
+    # 先量后画：卡片高度按内容自适应，整张图的高度跟着内容走
+    gx, gy, cw, gpx, gpy = 56, 322, 434, 24, 24
+    need = 300
+    for c in cards:
+        h = 130 + 8 + len(wrap(str(c.get("desc") or ""), f_desc, cw - 44)[:3]) * 26 + 8
+        for b in (c.get("bullets") or [])[:3]:
+            h += len(wrap(str(b), f_bul, cw - 66)[:2]) * 25 + 6
+        need = max(need, h + 30)
+    chh = max(300, min(404, need))
+    rows = max(1, (len(cards) + 3) // 4)
+    grid_bottom = gy + rows * chh + (rows - 1) * gpy
+    ph = 200
+    py0 = grid_bottom + 34
+    W2 = CW
+    H2 = py0 + ph + 78 if panels else grid_bottom + 80
+
+    img = _vert_grad(W2, H2, (253, 253, 254), (236, 240, 247)).convert("RGBA")
+    d = ImageDraw.Draw(img)
+
+    # 眉标 + 标题 + 副标题
+    d.text((56, 40), str(p.get("kicker") or "B 站视频一图读懂 · 本地 ASR + 抽帧校对"),
+           font=f_kick, fill=(138, 147, 165))
+    _title_two_tone(d, 54, 66, str(p.get("title") or "一张图读懂这个视频"),
+                    str(p.get("titleHl") or ""), f_title, (16, 24, 40), (47, 107, 255))
+    d.text((58, 150), str(p.get("subtitle") or ""), font=f_sub, fill=(102, 112, 133))
+
+    # 右上角数据
+    sx = 1864
+    for st in reversed((p.get("stats") or [])[:3]):
+        value, label = str(st.get("value") or ""), str(st.get("label") or "")
+        bw = max(f_stat_n.getlength(value), f_stat_l.getlength(label)) + 6
+        cx = sx - bw / 2
+        d.text((cx, 58), value, font=f_stat_n, fill=(16, 24, 40), anchor="mt")
+        d.text((cx, 104), label, font=f_stat_l, fill=(142, 150, 166), anchor="mt")
+        sx -= bw + 44
+
+    # 主旨条
+    d.rounded_rectangle((56, 200, 1864, 292), radius=18, fill=(242, 246, 255), outline=(216, 227, 255), width=1)
+    d.rounded_rectangle((56, 200, 63, 292), radius=3, fill=(47, 107, 255))
+    d.text((86, 216), str(p.get("quoteLabel") or "一句话主旨"), font=f_q_label, fill=(59, 91, 219))
+    para(d, 86, 240, 1730, str(p.get("quote") or ""), f_quote, (24, 32, 48), 34, max_lines=1)
+
+    # 一条淡色渐变：把八个插件串成一根线
+    nbar = min(len(cards), 8)
+    if nbar:
+        seg = 1808 // nbar
+        for i in range(nbar):
+            accent = ACCENTS.get(str(cards[i].get("color") or "blue"), ACCENTS["blue"])[0]
+            sx0 = 56 + i * seg
+            d.rounded_rectangle((sx0 + 1, 302, sx0 + seg - 3, 309), radius=3,
+                                fill=_mix(accent, (255, 255, 255), 0.45))
+
+    # 卡片网格
+    boxes = []
+    for i in range(len(cards)):
+        col, row = i % 4, i // 4
+        x = gx + col * (cw + gpx)
+        y = gy + row * (chh + gpy)
+        boxes.append((x, y, x + cw, y + chh))
+    if boxes:
+        img = Image.alpha_composite(img, _soft_shadow(img.size, boxes))
+        d = ImageDraw.Draw(img)
+
+    for i, c in enumerate(cards):
+        x, y = boxes[i][0], boxes[i][1]
+        accent, accent_dark, _tint = ACCENTS.get(str(c.get("color") or "blue"), ACCENTS["blue"])
+        d.rounded_rectangle((x, y, x + cw, y + chh), radius=20, fill=(255, 255, 255),
+                            outline=(229, 233, 241), width=1)
+        d.rounded_rectangle((x + 22, y + 15, x + 68, y + 19), radius=2, fill=accent)
+        d.rounded_rectangle((x + 22, y + 30, x + 84, y + 68), radius=11, fill=accent)
+        d.text((x + 53, y + 49), str(c.get("num") or "%02d" % (i + 1)), font=f_num,
+               fill=(255, 255, 255), anchor="mm")
+        en = str(c.get("en") or "")
+        fnt_en = f_en if _is_ascii(en) else f_cn
+        if fnt_en.getlength(en) > cw - 110:
+            fnt_en = f_en_s if _is_ascii(en) else F(DENGB, 22)
+        d.text((x + 96, y + 49), en, font=fnt_en, fill=(16, 24, 40), anchor="lm")
+        d.text((x + 22, y + 80), str(c.get("zh") or ""), font=f_zh, fill=accent_dark)
+        d.line((x + 22, y + 116, x + cw - 22, y + 116), fill=(237, 240, 246), width=1)
+
+        ty = y + 130
+        for ln in wrap(str(c.get("desc") or ""), f_desc, cw - 44)[:3]:
+            d.text((x + 22, ty), ln, font=f_desc, fill=(70, 80, 100))
+            ty += 26
+        by = ty + 8
+        for b in (c.get("bullets") or [])[:3]:
+            if by > y + chh - 40:
+                break
+            d.ellipse((x + 22, by + 8, x + 30, by + 16), fill=accent)
+            by = para(d, x + 40, by, cw - 66, str(b), f_bul, (44, 52, 70), 25, max_lines=2) + 6
+
+    # 底部三块
+    if panels:
+        n = len(panels)
+        gap = 24
+        pw = int((1808 - (n - 1) * gap) / n)
+        pboxes = [(56 + i * (pw + gap), py0, 56 + i * (pw + gap) + pw, py0 + ph) for i in range(n)]
+        img = Image.alpha_composite(img, _soft_shadow(img.size, pboxes, radius=18, blur=11, alpha=24, dy=7))
+        d = ImageDraw.Draw(img)
+        for i, pn in enumerate(panels):
+            accent, accent_dark, tint = ACCENTS.get(str(pn.get("color") or "blue"), ACCENTS["blue"])
+            x0, y0 = pboxes[i][0], pboxes[i][1]
+            d.rounded_rectangle((x0, y0, x0 + pw, y0 + ph), radius=18, fill=tint,
+                                outline=(255, 255, 255), width=1)
+            d.text((x0 + 24, y0 + 16), str(pn.get("title") or ""), font=f_sec, fill=accent_dark)
+            ty = y0 + 54
+            ordered = bool(pn.get("ordered"))
+            for k, it in enumerate((pn.get("items") or [])[:4]):
+                if ty > y0 + ph - 32:
+                    break
+                if ordered:
+                    d.ellipse((x0 + 26, ty + 2, x0 + 46, ty + 22), fill=accent)
+                    d.text((x0 + 36, ty + 12), str(k + 1), font=F(MONO_REG, 12.5),
+                           fill=(255, 255, 255), anchor="mm")
+                    ty = para(d, x0 + 56, ty, pw - 82, str(it), f_item, (46, 54, 72), 24, max_lines=2) + 7
+                else:
+                    d.ellipse((x0 + 27, ty + 8, x0 + 35, ty + 16), fill=accent)
+                    ty = para(d, x0 + 44, ty, pw - 70, str(it), f_item, (46, 54, 72), 24, max_lines=2) + 7
+
+    d.text((56, H2 - 34), str(p.get("footer") or ""), font=f_foot, fill=(138, 147, 165))
+    return img.convert("RGB")
 
 
 def safe_name(name, default):

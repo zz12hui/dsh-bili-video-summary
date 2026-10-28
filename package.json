@@ -1,8 +1,8 @@
 {
   "name": "dsh-local-bili-summary",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "type": "module",
-  "description": "B 站视频一键总结 DSH 插件：本地 faster-whisper 转写，自动生成解析 md 与一图读懂 PNG。",
+  "description": "B 站视频一键总结 DSH 插件：ffmpeg 解码 + faster-whisper 本地转写 + 抽帧校正专名，自动生成解析 md 与一图读懂 PNG。",
   "author": "zz12hui",
   "license": "MIT",
   "homepage": "https://github.com/zz12hui/dsh-bili-video-summary#readme",
@@ -19,7 +19,9 @@
     "faster-whisper",
     "asr",
     "summary",
-    "infographic"
+    "infographic",
+    "ffmpeg",
+    "keyframe"
   ],
   "exports": {
     ".": "./index.js",
